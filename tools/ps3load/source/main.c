@@ -65,8 +65,8 @@ typedef signed short s16;
 typedef signed int s32;
 typedef signed long long s64;
 
-typedef enum { false, true } bool;
-
+//typedef enum { false, true } bool;
+#include <stdbool.h>
 
 static const char *envvar = "PS3LOAD";
 
