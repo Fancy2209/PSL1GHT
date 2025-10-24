@@ -12,6 +12,9 @@
 
 videoOutResolution vResolution;
 
+u32 *commandbuffer = NULL;
+u32 commandbuffer_size;
+
 u32 curr_fb = 0;
 
 u32 display_width;
@@ -38,13 +41,13 @@ gcmSurface surface;
 static u32 sLabelVal = 1;
 
 static u32 sResolutionIds[] = {
-    VIDEO_RESOLUTION_1600x1080,
-    VIDEO_RESOLUTION_1440x1080,
-    VIDEO_RESOLUTION_1280x1080,
-    VIDEO_RESOLUTION_960x1080,
-    VIDEO_RESOLUTION_720,
-    VIDEO_RESOLUTION_480,
-    VIDEO_RESOLUTION_576
+    VIDEO_OUT_RESOLUTION_1600x1080,
+    VIDEO_OUT_RESOLUTION_1440x1080,
+    VIDEO_OUT_RESOLUTION_1280x1080,
+    VIDEO_OUT_RESOLUTION_960x1080,
+    VIDEO_OUT_RESOLUTION_720,
+    VIDEO_OUT_RESOLUTION_480,
+    VIDEO_OUT_RESOLUTION_576
 };
 static size_t RESOLUTION_ID_COUNT = sizeof(sResolutionIds)/sizeof(u32);
 
@@ -127,7 +130,7 @@ void initVideoConfiguration()
     s32 resId = 0;
 
     for (size_t i=0;i < RESOLUTION_ID_COUNT;i++) {
-        rval = videoOutGetResolutionAvailability(VIDEO_PRIMARY, sResolutionIds[i], VIDEO_ASPECT_AUTO, 0);
+        rval = videoOutGetResolutionAvailability(VIDEO_OUT_PRIMARY, sResolutionIds[i], VIDEO_OUT_ASPECT_AUTO, 0);
         if (rval != 1) continue;
 
         resId = sResolutionIds[i];
@@ -142,13 +145,13 @@ void initVideoConfiguration()
 
     videoOutConfiguration config = {
         (u8)resId,
-        VIDEO_BUFFER_FORMAT_XRGB,
-        VIDEO_ASPECT_AUTO,
+        VIDEO_OUT_BUFFER_FORMAT_XRGB,
+        VIDEO_OUT_ASPECT_AUTO,
         {0,0,0,0,0,0,0,0,0},
         gcmGetTiledPitchSize(vResolution.width*4)
     };
 
-    rval = videoOutConfigure(VIDEO_PRIMARY, &config, NULL, 0);
+    rval = videoOutConfigure(VIDEO_OUT_PRIMARY, &config, NULL, 0);
     if(rval) {
         printf("Error: videoOutConfigure failed.\n");
         exit(1);
@@ -156,12 +159,12 @@ void initVideoConfiguration()
 
     videoOutState state;
 
-    rval = videoOutGetState(VIDEO_PRIMARY, 0, &state);
+    rval = videoOutGetState(VIDEO_OUT_PRIMARY, 0, &state);
     switch(state.displayMode.aspect) {
-        case VIDEO_ASPECT_4_3:
+        case VIDEO_OUT_ASPECT_4_3:
             aspect_ratio = 4.0f/3.0f;
             break;
-        case VIDEO_ASPECT_16_9:
+        case VIDEO_OUT_ASPECT_16_9:
             aspect_ratio = 16.0f/9.0f;
             break;
         default:
@@ -232,6 +235,8 @@ void initScreen()
 
     void *hostAddr = memalign(HOST_ADDR_ALIGNMENT, bufferSize);
     rsxInit(nullptr, DEFAULT_CB_SIZE, bufferSize, hostAddr);
+    commandbuffer_size = bufferSize&~0x3;
+	commandbuffer = gGcmContext->current;
 
     initVideoConfiguration();
 
@@ -278,8 +283,25 @@ void initScreen()
     rsxSetWriteCommandLabel(gGcmContext, GCM_BUFFER_STATUS_INDEX + curr_fb, BUFFER_BUSY);
 }
 
+static void resetCommandBuffer()
+{
+	rsxFinish(gGcmContext, 1);
+	u32 startoffs;
+	rsxAddressToOffset(commandbuffer, &startoffs);
+	rsxSetJumpCommand(gGcmContext, startoffs);
+
+	gcmControlRegister volatile *ctrl = gcmGetControlRegister();
+	ctrl->put = startoffs;
+	while (ctrl->get != startoffs) usleep(30);
+	
+	gGcmContext->current = commandbuffer;
+	gGcmContext->begin   = commandbuffer;
+	gGcmContext->end     = gGcmContext->begin + commandbuffer_size;
+}
+
 void flip()
 {
+    rsxFinish(gGcmContext, 0);
     s32 qid = gcmSetPrepareFlip(gGcmContext, curr_fb);
     while (qid < 0) {
         usleep(100);
@@ -296,6 +318,7 @@ void flip()
     rsxSetWaitLabel(gGcmContext, GCM_BUFFER_STATUS_INDEX + curr_fb, BUFFER_IDLE);
     rsxSetWriteCommandLabel(gGcmContext, GCM_BUFFER_STATUS_INDEX + curr_fb, BUFFER_BUSY);
 
+    resetCommandBuffer();
     setRenderTarget(curr_fb);
 }
 

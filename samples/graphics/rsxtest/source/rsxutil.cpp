@@ -16,6 +16,9 @@
 videoOutResolution vResolution;
 gcmContextData *context = NULL;
 
+u32 *commandbuffer = NULL;
+u32 commandbuffer_size;
+
 u32 curr_fb = 0;
 u32 first_fb = 1;
 
@@ -33,10 +36,10 @@ u32 *color_buffer[FRAME_BUFFER_COUNT];
 f32 aspect_ratio;
 
 static u32 sResolutionIds[] = {
-    VIDEO_RESOLUTION_960x1080,
-    VIDEO_RESOLUTION_720,
-    VIDEO_RESOLUTION_480,
-    VIDEO_RESOLUTION_576
+    VIDEO_OUT_RESOLUTION_960x1080,
+    VIDEO_OUT_RESOLUTION_720,
+    VIDEO_OUT_RESOLUTION_480,
+    VIDEO_OUT_RESOLUTION_576
 };
 static size_t RESOLUTION_ID_COUNT = sizeof(sResolutionIds)/sizeof(u32);
 
@@ -72,7 +75,7 @@ void initVideoConfiguration()
     s32 resId = 0;
 
     for (size_t i=0;i < RESOLUTION_ID_COUNT;i++) {
-        rval = videoOutGetResolutionAvailability(VIDEO_PRIMARY, sResolutionIds[i], VIDEO_ASPECT_AUTO, 0);
+        rval = videoOutGetResolutionAvailability(VIDEO_OUT_PRIMARY, sResolutionIds[i], VIDEO_OUT_ASPECT_AUTO, 0);
         if (rval != 1) continue;
 
         resId = sResolutionIds[i];
@@ -87,13 +90,13 @@ void initVideoConfiguration()
 
     videoOutConfiguration config = {
         (u8)resId,
-        VIDEO_BUFFER_FORMAT_XRGB,
-        VIDEO_ASPECT_AUTO,
+        VIDEO_OUT_BUFFER_FORMAT_XRGB,
+        VIDEO_OUT_ASPECT_AUTO,
         {0,0,0,0,0,0,0,0,0},
         (u32)vResolution.width*4
     };
 
-    rval = videoOutConfigure(VIDEO_PRIMARY, &config, NULL, 0);
+    rval = videoOutConfigure(VIDEO_OUT_PRIMARY, &config, NULL, 0);
     if(rval) {
         printf("Error: videoOutConfigure failed.\n");
         exit(1);
@@ -101,12 +104,12 @@ void initVideoConfiguration()
 
     videoOutState state;
 
-    rval = videoOutGetState(VIDEO_PRIMARY, 0, &state);
+    rval = videoOutGetState(VIDEO_OUT_PRIMARY, 0, &state);
     switch(state.displayMode.aspect) {
-        case VIDEO_ASPECT_4_3:
+        case VIDEO_OUT_ASPECT_4_3:
             aspect_ratio = 4.0f/3.0f;
             break;
-        case VIDEO_ASPECT_16_9:
+        case VIDEO_OUT_ASPECT_16_9:
             aspect_ratio = 16.0f/9.0f;
             break;
         default:
@@ -161,6 +164,8 @@ void init_screen(void *host_addr,u32 size)
     u32 color_depth = 4;
 
 	rsxInit(&context,DEFUALT_CB_SIZE,size,host_addr);
+	commandbuffer_size = size&~0x3;
+	commandbuffer = context->current;
 
 	initVideoConfiguration();
 
@@ -190,8 +195,25 @@ void waitflip()
 	gcmResetFlipStatus();
 }
 
+static void resetCommandBuffer()
+{
+	rsxFinish(context, 1);
+	u32 startoffs;
+	rsxAddressToOffset(commandbuffer, &startoffs);
+	rsxSetJumpCommand(context, startoffs);
+
+	gcmControlRegister volatile *ctrl = gcmGetControlRegister();
+	ctrl->put = startoffs;
+	while (ctrl->get != startoffs) usleep(30);
+	
+	context->current = commandbuffer;
+	context->begin   = commandbuffer;
+	context->end     = context->begin + commandbuffer_size;
+}
+
 void flip()
 {
+	rsxFinish(context, 0);
 	if(!first_fb) waitflip();
 	else gcmResetFlipStatus();
 
@@ -201,6 +223,7 @@ void flip()
 	gcmSetWaitFlip(context);
 
 	curr_fb ^= 1;
+	resetCommandBuffer();
 	setRenderTarget(curr_fb);
 
 	first_fb = 0;

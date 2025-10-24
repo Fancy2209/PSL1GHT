@@ -14,6 +14,9 @@
 videoOutResolution res;
 gcmContextData *context = NULL;
 
+u32 *commandbuffer;
+u32 commandbuffer_size;
+
 u32 curr_fb = 0;
 u32 first_fb = 1;
 
@@ -92,6 +95,9 @@ void init_screen(void *host_addr,u32 size)
 {
 	rsxInit(&context,CB_SIZE,size,host_addr);
 
+	commandbuffer = context->current;
+	commandbuffer_size = size&~0x3;
+
 	videoOutState state;
 	videoOutGetState(0,0,&state);
 
@@ -101,7 +107,7 @@ void init_screen(void *host_addr,u32 size)
 	memset(&vconfig,0,sizeof(videoOutConfiguration));
 
 	vconfig.resolution = state.displayMode.resolution;
-	vconfig.format = VIDEO_BUFFER_FORMAT_XRGB;
+	vconfig.format = VIDEO_OUT_BUFFER_FORMAT_XRGB;
 	vconfig.pitch = res.width*sizeof(u32);
 
 	waitRSXIdle();
@@ -136,8 +142,26 @@ void waitflip()
 	gcmResetFlipStatus();
 }
 
+static void resetCommandBuffer()
+{
+	rsxFinish(context, 1);
+	u32 startoffs;
+	rsxAddressToOffset(commandbuffer, &startoffs);
+	rsxSetJumpCommand(context, startoffs);
+
+	gcmControlRegister volatile *ctrl = gcmGetControlRegister();
+	ctrl->put = startoffs;
+	while (ctrl->get != startoffs) usleep(30);
+	
+	context->current = commandbuffer;
+	context->begin   = commandbuffer;
+	context->end     = context->begin + commandbuffer_size;
+}
+
 void flip()
 {
+	rsxFinish(context, 0);
+	waitRSXIdle();
 	if(!first_fb) waitflip();
 	else gcmResetFlipStatus();
 
@@ -147,6 +171,7 @@ void flip()
 	gcmSetWaitFlip(context);
 
 	curr_fb ^= 1;
+	resetCommandBuffer();
 	setRenderTarget(curr_fb);
 
 	first_fb = 0;

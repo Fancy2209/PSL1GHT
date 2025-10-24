@@ -68,7 +68,7 @@ void blit_scale(Bitmap *bitmap, u32 dstX, u32 dstY, u32 srcX, u32 srcY, u32 w, u
   scale.conversion = GCM_TRANSFER_CONVERSION_TRUNCATE;
   scale.format = GCM_TRANSFER_SCALE_FORMAT_A8R8G8B8;
   scale.origin = GCM_TRANSFER_ORIGIN_CORNER;
-  scale.operation = GCM_TRANSFER_OPERATION_SRCCOPY_AND;
+  scale.operation = (zoom == 1) ? GCM_TRANSFER_OPERATION_SRCCOPY : GCM_TRANSFER_OPERATION_SRCCOPY_AND; // NOTE: RPCS3 only supports GCM_TRANSFER_OPERATION_SRCCOPY
   scale.interp = GCM_TRANSFER_INTERPOLATOR_NEAREST;
   scale.clipX = 0;
   scale.clipY = 0;
@@ -150,10 +150,11 @@ int main(int argc,const char *argv[])
         /* Distort the PSL1GHT image by displaying lines with different X coords */
         for (u32 i=0; i<bitmap.height; ++i) {
             int x = display_width*3/4 + 50.f*sinf(((i+k) & 0x7f) * (2.f*M_PI/0x80));
-            blit_simple(&bitmap, x, 100+i, 0, i, bitmap.width, 1);
+            blit_scale(&bitmap, x, 100+i, 0, i, bitmap.width, 1, 1);
         }
         k = (k+1) & 0x7f;
 
+#if 0 // TODO: Crashes the PS3, need to investigate
         /* Animate all letters */
         for (int i=6; i>=0; --i) {
             int x = display_width * (0.1f + 0.8f * (0.5f+0.5f*sinf((frame_cnt - 10*i) * .01f)));
@@ -167,6 +168,7 @@ int main(int argc,const char *argv[])
             int y = 150 + 400 * (0.5f+0.5f*sinf((frame_cnt - 10*i) * .02f));
             blit_scale(&bitmap, x, y, i*32, 0, 32, bitmap.height, 2.f);
         }
+#endif
 
 		flip();
         frame_cnt++;
