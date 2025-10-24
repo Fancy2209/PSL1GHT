@@ -50,6 +50,29 @@ SECTIONS
 	    *(.rela.init)
 	    *(.rela.text .rela.text.* .rela.gnu.linkonce.t.*)
 	    *(.rela.fini)
+		/* Based on the PSP SDK Linker Script */
+	    *(.rel.sceStub.text) *(SORT(.rel.sceStub.text.*))
+		*(.rela.sceStub.text) *(SORT(.rela.sceStub.text.*))
+	    *(.rel.lib.ent.top)
+		*(.rela.lib.ent.top)
+	    *(.rel.lib.ent)
+		*(.rela.lib.ent)
+	    *(.rel.lib.ent.btm)
+		*(.rela.lib.ent.btm)
+	    *(.rel.lib.stub.top)
+		*(.rela.lib.stub.top)
+	    *(.rel.lib.stub)
+		*(.rela.lib.stub)
+	    *(.rel.lib.stub.btm)
+		*(.rela.lib.stub.btm)
+	    *(.rel.rodata.sceModuleInfo)
+		*(.rela.rodata.sceModuleInfo)
+	    *(.rel.rodata.sceResident)
+		*(.rela.rodata.sceResident)
+	    *(.rel.rodata.sceNid)
+		*(.rela.rodata.sceNid)
+	    *(.rel.rodata.sceVstub) *(SORT(.rel.rodata.sceVstub.*))
+		*(.rela.rodata.sceVstub) *(SORT(.rela.rodata.sceVstub.*))
 	    *(.rela.rodata .rela.rodata.* .rela.gnu.linkonce.r.*)
 	    *(.rela.data .rela.data.* .rela.gnu.linkonce.d.*)
 	    *(.rela.tdata .rela.tdata.* .rela.gnu.linkonce.td.*)
@@ -92,11 +115,12 @@ SECTIONS
 	.eh_frame       : ONLY_IF_RO { KEEP (*(.eh_frame)) }
 	.gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) }
 
-	.rodata.sceResident : { KEEP (*(.rodata.sceResident)) }
-	.rodata.sceFNID     : { KEEP (*(.rodata.sceFNID .rodata.sceFNID.*)) }
-	.rodata.sceVNID     : { KEEP (*(.rodata.sceVNID .rodata.sceVNID.*)) }
-	.rodata.sceTNID     : { KEEP (*(.rodata.sceTNID .rodata.sceTNID.*)) }
-	.rodata.sceVStub    : { KEEP (*(.rodata.sceVStub)) KEEP (*(SORT(.rodata.sceVStub.*))) }
+	.rodata.sceModuleInfo : { KEEP (*(.rodata.sceModuleInfo)) }
+	.rodata.sceResident   : { KEEP (*(.rodata.sceResident)) }
+	.rodata.sceFNID       : { KEEP (*(.rodata.sceFNID .rodata.sceFNID.*)) }
+	.rodata.sceVNID       : { KEEP (*(.rodata.sceVNID .rodata.sceVNID.*)) }
+	.rodata.sceTNID       : { KEEP (*(.rodata.sceTNID .rodata.sceTNID.*)) }
+	.rodata.sceVStub      : { KEEP (*(.rodata.sceVStub)) KEEP (*(SORT(.rodata.sceVStub.*))) }
 
 	PROVIDE (__libentstart = .);
 	.lib.ent.top : { KEEP (*(.lib.ent.top)) }
