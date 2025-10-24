@@ -60,8 +60,8 @@ ppu:
 #---------------------------------------------------------------------------------
 install: all
 #---------------------------------------------------------------------------------
-	@cp -frv $(CURDIR)/ppu/lv2-*.o $(PS3DEV)/ppu/ppu/lib
-	@cp -frv $(CURDIR)/lv2.ld $(PS3DEV)/ppu/ppu/lib
+	@cp -frv $(CURDIR)/ppu/lv2-*.o $(PS3DEV)/ppu/lib/gcc/powerpc64-ps3-elf/15.2.0
+	@cp -frv $(CURDIR)/lv2.ld $(PS3DEV)/ppu/lib/gcc/powerpc64-ps3-elf/15.2.0
 
 .PHONY: crts ppu install
 
